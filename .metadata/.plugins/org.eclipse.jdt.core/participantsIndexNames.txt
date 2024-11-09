@@ -1,0 +1,3 @@
+INDEX VERSION 1.134
+/Users/apple/eclipse-workspace/.metadata/.plugins/org.eclipse.jst.jsp.core/jspsearch/3803605072.index
+/user-web-app/src/main/resources
