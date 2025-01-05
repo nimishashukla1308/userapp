@@ -1,0 +1,98 @@
+# Currency Converter Documentation
+
+## Overview
+This document provides comprehensive documentation for the Currency Converter application, including its features, implementation details, and usage guidelines.
+
+## Technical Architecture
+
+### Components
+1. **DataValidator**
+   - Handles real-time input validation
+   - Implements comprehensive error checking
+   - Provides user feedback through visual cues
+
+2. **CurrencyConverterFeatures**
+   - Manages core conversion functionality
+   - Implements innovative features
+   - Handles UI/UX elements
+
+### Validation Rules
+- Amount field must not be empty
+- Only numeric input allowed
+- No negative values
+- Maximum value: 1,000,000
+- Maximum 2 decimal places
+- Real-time validation feedback
+
+### Innovative Features
+1. **Real-time Conversion**
+   - Automatic conversion as user types
+   - Immediate feedback and results
+
+2. **Currency Swap**
+   - Quick exchange of source and target currencies
+   - Single-click operation
+
+3. **Favorites System**
+   - Save frequently used conversions
+   - Quick access to common conversions
+
+4. **Auto-Update**
+   - Regular exchange rate updates
+   - Background processing
+
+## Usage Guide
+
+### Basic Operations
+1. Enter amount in the input field
+2. Select source currency
+3. Select target currency
+4. View real-time conversion results
+
+### Advanced Features
+1. **Using Swap Feature**
+   - Click the swap button (⇄) to exchange currencies
+   - Results update automatically
+
+2. **Managing Favorites**
+   - Click star icon (★) to save current conversion
+   - Access saved conversions from favorites panel
+
+### Error Handling
+- Invalid input displays red error messages
+- Background color changes indicate validation status
+- Clear error messages guide users to correct input
+
+## Maintenance
+
+### Adding New Currencies
+1. Update getCurrencies() method
+2. Add exchange rate in updateExchangeRates()
+3. Update UI components if necessary
+
+### Modifying Validation Rules
+1. Locate relevant validation in DataValidator
+2. Modify validation logic
+3. Update error messages accordingly
+
+## Testing Guidelines
+
+### Input Validation Tests
+- Test empty input
+- Test negative numbers
+- Test large numbers
+- Test invalid characters
+- Test decimal places
+
+### Conversion Tests
+- Test basic conversion accuracy
+- Test currency swap functionality
+- Test real-time updates
+- Test favorites system
+
+## Future Enhancements
+1. Add support for more currencies
+2. Implement API integration for live rates
+3. Add conversion history
+4. Include rate trend visualization
+5. Add offline mode support
