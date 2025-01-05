@@ -1,0 +1,82 @@
+// DataValidator.java
+import javax.swing.*;
+import java.awt.Color;
+
+public class DataValidator {
+    private JTextField amountField;
+    private JLabel errorLabel;
+    
+    public DataValidator(JTextField amountField, JLabel errorLabel) {
+        this.amountField = amountField;
+        this.errorLabel = errorLabel;
+        setupValidation();
+    }
+    
+    private void setupValidation() {
+        // Create custom input verifier
+        amountField.setInputVerifier(new InputVerifier() {
+            @Override
+            public boolean verify(JComponent input) {
+                return validateAmount();
+            }
+        });
+        
+        // Add real-time validation
+        amountField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { validateAmount(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { validateAmount(); }
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { validateAmount(); }
+        });
+    }
+    
+    public boolean validateAmount() {
+        String text = amountField.getText();
+        
+        // Check for empty input
+        if (text.isEmpty()) {
+            showError("Amount cannot be empty");
+            return false;
+        }
+        
+        try {
+            double amount = Double.parseDouble(text);
+            
+            // Check for negative values
+            if (amount < 0) {
+                showError("Amount cannot be negative");
+                return false;
+            }
+            
+            // Check for maximum limit
+            if (amount > 1000000) {
+                showError("Amount exceeds maximum limit (1,000,000)");
+                return false;
+            }
+            
+            // Check decimal places
+            if (text.contains(".") && text.split("\\.")[1].length() > 2) {
+                showError("Maximum 2 decimal places allowed");
+                return false;
+            }
+            
+            hideError();
+            return true;
+            
+        } catch (NumberFormatException e) {
+            showError("Please enter a valid number");
+            return false;
+        }
+    }
+    
+    private void showError(String message) {
+        errorLabel.setText(message);
+        errorLabel.setForeground(Color.RED);
+        errorLabel.setVisible(true);
+        amountField.setBackground(new Color(255, 240, 240));
+    }
+    
+    private void hideError() {
+        errorLabel.setVisible(false);
+        amountField.setBackground(Color.WHITE);
+    }
+}

@@ -1,0 +1,109 @@
+// CurrencyConverterFeatures.java
+import javax.swing.*;
+import java.awt.*;
+import java.text.DecimalFormat;
+import java.util.*;
+
+public class CurrencyConverterFeatures extends JFrame {
+    private Map<String, Double> exchangeRates;
+    private List<String> favoriteConversions;
+    private DecimalFormat df;
+    private Timer autoUpdateTimer;
+    
+    // UI Components
+    private JComboBox<String> fromCurrency, toCurrency;
+    private JTextField amountField, resultField;
+    private JButton convertButton, swapButton, favoriteButton;
+    private JPanel historyPanel;
+    
+    public CurrencyConverterFeatures() {
+        // Initialize components with modern design
+        initializeComponents();
+        setupInnovativeFeatures();
+        setupLayout();
+    }
+    
+    private void initializeComponents() {
+        df = new DecimalFormat("#.##");
+        exchangeRates = new HashMap<>();
+        favoriteConversions = new ArrayList<>();
+        
+        // Modern UI components
+        fromCurrency = new JComboBox<>(getCurrencies());
+        toCurrency = new JComboBox<>(getCurrencies());
+        amountField = new JTextField(10);
+        resultField = new JTextField(10);
+        resultField.setEditable(false);
+        
+        // Styled buttons
+        convertButton = createStyledButton("Convert", new Color(0, 120, 212));
+        swapButton = createStyledButton("⇄", new Color(70, 70, 70));
+        favoriteButton = createStyledButton("★", new Color(255, 190, 0));
+        
+        // History panel with scroll
+        historyPanel = new JPanel();
+        historyPanel.setLayout(new BoxLayout(historyPanel, BoxLayout.Y_AXIS));
+    }
+    
+    private void setupInnovativeFeatures() {
+        // Auto-update exchange rates every 5 minutes
+        autoUpdateTimer = new Timer(300000, e -> updateExchangeRates());
+        autoUpdateTimer.start();
+        
+        // Currency swap feature
+        swapButton.addActionListener(e -> swapCurrencies());
+        
+        // Favorites system
+        favoriteButton.addActionListener(e -> addToFavorites());
+        
+        // Real-time conversion
+        amountField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { autoConvert(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { autoConvert(); }
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { autoConvert(); }
+        });
+    }
+    
+    private JButton createStyledButton(String text, Color color) {
+        JButton button = new JButton(text);
+        button.setBackground(color);
+        button.setForeground(Color.WHITE);
+        button.setFocusPainted(false);
+        button.setBorderPainted(false);
+        button.setOpaque(true);
+        return button;
+    }
+    
+    private void swapCurrencies() {
+        int fromIndex = fromCurrency.getSelectedIndex();
+        int toIndex = toCurrency.getSelectedIndex();
+        fromCurrency.setSelectedIndex(toIndex);
+        toCurrency.setSelectedIndex(fromIndex);
+        autoConvert();
+    }
+    
+    private void addToFavorites() {
+        String conversion = fromCurrency.getSelectedItem() + " to " + 
+                          toCurrency.getSelectedItem();
+        if (!favoriteConversions.contains(conversion)) {
+            favoriteConversions.add(conversion);
+            updateFavoritesList();
+        }
+    }
+    
+    private void autoConvert() {
+        if (!amountField.getText().isEmpty()) {
+            performConversion();
+        }
+    }
+    
+    private void updateExchangeRates() {
+        // In real implementation, this would fetch from an API
+        // Simulated update for demonstration
+        System.out.println("Exchange rates updated");
+    }
+    
+    private String[] getCurrencies() {
+        return new String[]{"USD", "EUR", "GBP", "JPY", "AUD", "CAD", "INR"};
+    }
+}
