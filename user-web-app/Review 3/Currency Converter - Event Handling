@@ -1,0 +1,345 @@
+import javax.swing.*;
+import javax.swing.event.*;
+import javax.swing.text.*;
+import java.awt.*;
+import java.awt.event.*;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.*;
+
+public class CurrencyConverterEvents extends JFrame {
+    private JTextField amountField;
+    private JComboBox<String> fromCurrencyBox;
+    private JComboBox<String> toCurrencyBox;
+    private JLabel resultLabel;
+    private JLabel statusLabel;
+    private JButton convertButton;
+    private Timer autoUpdateTimer;
+    private final Map<String, Double> exchangeRates;
+
+    public CurrencyConverterEvents() {
+        setTitle("Currency Converter - Event Handling");
+        setSize(450, 600);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
+
+        // Initialize exchange rates
+        exchangeRates = new HashMap<>();
+        initializeExchangeRates();
+
+        // Setup UI with event handling
+        setupUI();
+        setupEventHandling();
+        setupKeyboardShortcuts();
+        setupAutoUpdate();
+    }
+
+    private void initializeExchangeRates() {
+        exchangeRates.put("USD", 1.0);
+        exchangeRates.put("EUR", 0.85);
+        exchangeRates.put("GBP", 0.73);
+        exchangeRates.put("JPY", 110.0);
+        exchangeRates.put("AUD", 1.35);
+        exchangeRates.put("CAD", 1.25);
+    }
+
+    private void setupUI() {
+        JPanel mainPanel = new JPanel();
+        mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
+        mainPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        // Title with hover effect
+        JLabel titleLabel = createHoverLabel("Currency Converter");
+        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        mainPanel.add(titleLabel);
+        mainPanel.add(Box.createRigidArea(new Dimension(0, 20)));
+
+        // Amount Panel with instant validation
+        mainPanel.add(createAmountPanel());
+        mainPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+
+        // Currency Selection Panel with tooltips
+        mainPanel.add(createCurrencyPanel());
+        mainPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+
+        // Convert Button with visual feedback
+        convertButton = new JButton("Convert");
+        convertButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        convertButton.setEnabled(false);
+        mainPanel.add(convertButton);
+        mainPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+
+        // Result Panel
+        mainPanel.add(createResultPanel());
+        mainPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+
+        // Status Label for feedback
+        statusLabel = new JLabel(" ");
+        statusLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        mainPanel.add(statusLabel);
+
+        add(mainPanel);
+    }
+
+    private JLabel createHoverLabel(String text) {
+        JLabel label = new JLabel(text);
+        label.setFont(new Font("Arial", Font.BOLD, 24));
+        label.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        
+        label.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) {
+                label.setForeground(Color.BLUE);
+            }
+            public void mouseExited(MouseEvent e) {
+                label.setForeground(Color.BLACK);
+            }
+        });
+        
+        return label;
+    }
+
+    private JPanel createAmountPanel() {
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setBorder(BorderFactory.createTitledBorder("Enter Amount"));
+
+        amountField = new JTextField();
+        amountField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+        amountField.setToolTipText("Enter a numeric amount to convert");
+        panel.add(amountField);
+
+        return panel;
+    }
+
+    private JPanel createCurrencyPanel() {
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setBorder(BorderFactory.createTitledBorder("Select Currencies"));
+
+        // From Currency
+        JPanel fromPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        fromPanel.add(new JLabel("From:"));
+        fromCurrencyBox = new JComboBox<>(exchangeRates.keySet().toArray(new String[0]));
+        fromCurrencyBox.setToolTipText("Select the source currency");
+        fromPanel.add(fromCurrencyBox);
+        panel.add(fromPanel);
+
+        // To Currency
+        JPanel toPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        toPanel.add(new JLabel("To:"));
+        toCurrencyBox = new JComboBox<>(exchangeRates.keySet().toArray(new String[0]));
+        toCurrencyBox.setToolTipText("Select the target currency");
+        toPanel.add(toCurrencyBox);
+        panel.add(toPanel);
+
+        return panel;
+    }
+
+    private JPanel createResultPanel() {
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setBorder(BorderFactory.createTitledBorder("Result"));
+
+        resultLabel = new JLabel("Enter an amount and click Convert");
+        resultLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        panel.add(resultLabel);
+
+        return panel;
+    }
+
+    private void setupEventHandling() {
+        // Amount field document listener for real-time validation
+        amountField.getDocument().addDocumentListener(new DocumentListener() {
+            public void changedUpdate(DocumentEvent e) { validateInput(); }
+            public void removeUpdate(DocumentEvent e) { validateInput(); }
+            public void insertUpdate(DocumentEvent e) { validateInput(); }
+        });
+
+        // Mouse hover effects for convert button
+        convertButton.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) {
+                if (convertButton.isEnabled()) {
+                    convertButton.setBackground(new Color(200, 220, 250));
+                }
+            }
+            public void mouseExited(MouseEvent e) {
+                convertButton.setBackground(UIManager.getColor("Button.background"));
+            }
+        });
+
+        // Convert button click handler
+        convertButton.addActionListener(e -> performConversion());
+
+        // Currency selection change listeners
+        fromCurrencyBox.addActionListener(e -> handleCurrencyChange());
+        toCurrencyBox.addActionListener(e -> handleCurrencyChange());
+
+        // Focus listeners for visual feedback
+        setupFocusListeners();
+    }
+
+    private void setupFocusListeners() {
+        FocusListener focusListener = new FocusAdapter() {
+            public void focusGained(FocusEvent e) {
+                JComponent component = (JComponent) e.getComponent();
+                component.setBorder(BorderFactory.createLineBorder(Color.BLUE));
+            }
+            public void focusLost(FocusEvent e) {
+                JComponent component = (JComponent) e.getComponent();
+                component.setBorder(UIManager.getBorder("TextField.border"));
+            }
+        };
+
+        amountField.addFocusListener(focusListener);
+    }
+
+    private void setupKeyboardShortcuts() {
+        // Register keyboard shortcuts
+        JRootPane rootPane = getRootPane();
+        
+        // Enter key for conversion
+        rootPane.registerKeyboardAction(
+            e -> performConversion(),
+            KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0),
+            JComponent.WHEN_IN_FOCUSED_WINDOW
+        );
+
+        // Escape key to clear
+        rootPane.registerKeyboardAction(
+            e -> clearFields(),
+            KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
+            JComponent.WHEN_IN_FOCUSED_WINDOW
+        );
+
+        // Ctrl+R to reset currency selection
+        rootPane.registerKeyboardAction(
+            e -> resetCurrencies(),
+            KeyStroke.getKeyStroke(KeyEvent.VK_R, InputEvent.CTRL_DOWN_MASK),
+            JComponent.WHEN_IN_FOCUSED_WINDOW
+        );
+    }
+
+    private void setupAutoUpdate() {
+        // Auto-update timer for regular validation
+        autoUpdateTimer = new Timer(500, e -> validateInput());
+        autoUpdateTimer.start();
+    }
+
+    private void validateInput() {
+        try {
+            String text = amountField.getText().trim();
+            
+            if (text.isEmpty()) {
+                updateStatus("Enter an amount to convert", false);
+                convertButton.setEnabled(false);
+                return;
+            }
+
+            BigDecimal amount = new BigDecimal(text);
+            
+            if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+                updateStatus("Amount must be positive", false);
+                convertButton.setEnabled(false);
+                return;
+            }
+
+            if (amount.compareTo(new BigDecimal("999999999")) > 0) {
+                updateStatus("Amount is too large", false);
+                convertButton.setEnabled(false);
+                return;
+            }
+
+            updateStatus("Ready to convert", true);
+            convertButton.setEnabled(true);
+            
+        } catch (NumberFormatException e) {
+            updateStatus("Please enter a valid number", false);
+            convertButton.setEnabled(false);
+        }
+    }
+
+    private void handleCurrencyChange() {
+        String fromCurrency = (String) fromCurrencyBox.getSelectedItem();
+        String toCurrency = (String) toCurrencyBox.getSelectedItem();
+
+        if (fromCurrency.equals(toCurrency)) {
+            updateStatus("Please select different currencies", false);
+            convertButton.setEnabled(false);
+        } else {
+            validateInput();
+        }
+    }
+
+    private void performConversion() {
+        try {
+            // Visual feedback during conversion
+            setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+            convertButton.setEnabled(false);
+            
+            BigDecimal amount = new BigDecimal(amountField.getText().trim());
+            String fromCurrency = (String) fromCurrencyBox.getSelectedItem();
+            String toCurrency = (String) toCurrencyBox.getSelectedItem();
+
+            // Simulate network delay
+            Thread.sleep(500);
+
+            // Calculate conversion
+            double rate = exchangeRates.get(toCurrency) / exchangeRates.get(fromCurrency);
+            BigDecimal result = amount.multiply(BigDecimal.valueOf(rate))
+                                    .setScale(2, RoundingMode.HALF_UP);
+
+            // Update result with animation
+            SwingUtilities.invokeLater(() -> {
+                resultLabel.setText(String.format("%.2f %s = %.2f %s",
+                    amount.doubleValue(), fromCurrency,
+                    result.doubleValue(), toCurrency));
+                updateStatus("Conversion successful!", true);
+            });
+
+        } catch (Exception e) {
+            updateStatus("Error during conversion: " + e.getMessage(), false);
+        } finally {
+            // Reset cursor and button state
+            setCursor(Cursor.getDefaultCursor());
+            convertButton.setEnabled(true);
+        }
+    }
+
+    private void clearFields() {
+        amountField.setText("");
+        resultLabel.setText("Enter an amount and click Convert");
+        updateStatus(" ", true);
+    }
+
+    private void resetCurrencies() {
+        fromCurrencyBox.setSelectedItem("USD");
+        toCurrencyBox.setSelectedItem("EUR");
+        updateStatus("Currencies reset to default", true);
+    }
+
+    private void updateStatus(String message, boolean isSuccess) {
+        statusLabel.setText(message);
+        statusLabel.setForeground(isSuccess ? new Color(0, 120, 0) : Color.RED);
+    }
+
+    @Override
+    public void dispose() {
+        autoUpdateTimer.stop();
+        super.dispose();
+    }
+
+    public static void main(String[] args) {
+        // Set look and feel for better UI
+        try {
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        // Run GUI in event dispatch thread
+        SwingUtilities.invokeLater(() -> {
+            CurrencyConverterEvents converter = new CurrencyConverterEvents();
+            converter.setVisible(true);
+        });
+    }
+}

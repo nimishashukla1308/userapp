@@ -1,0 +1,407 @@
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import java.awt.event.*;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.*;
+import java.io.*;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
+// Main Application Class
+public class CurrencyConverterIntegrated extends JFrame {
+    private final ConversionPanel conversionPanel;
+    private final HistoryPanel historyPanel;
+    private final RateManager rateManager;
+    private final DataManager dataManager;
+
+    public CurrencyConverterIntegrated() {
+        setTitle("Currency Converter - Integrated Version");
+        setSize(800, 600);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
+
+        // Initialize components
+        dataManager = new DataManager();
+        rateManager = new RateManager(dataManager);
+        conversionPanel = new ConversionPanel(rateManager);
+        historyPanel = new HistoryPanel();
+
+        // Setup main layout
+        setupLayout();
+
+        // Setup component integration
+        setupIntegration();
+
+        // Load saved data
+        loadSavedData();
+    }
+
+    private void setupLayout() {
+        setLayout(new BorderLayout(10, 10));
+        
+        // Add main conversion panel to the left
+        add(conversionPanel, BorderLayout.WEST);
+        
+        // Add history panel to the center
+        add(historyPanel, BorderLayout.CENTER);
+        
+        // Add menu bar
+        setJMenuBar(createMenuBar());
+    }
+
+    private JMenuBar createMenuBar() {
+        JMenuBar menuBar = new JMenuBar();
+        JMenu fileMenu = new JMenu("File");
+        JMenu toolsMenu = new JMenu("Tools");
+
+        // File menu items
+        JMenuItem exportItem = new JMenuItem("Export History");
+        exportItem.addActionListener(e -> dataManager.exportHistory(historyPanel.getHistory()));
+        fileMenu.add(exportItem);
+
+        // Tools menu items
+        JMenuItem ratesItem = new JMenuItem("Manage Rates");
+        ratesItem.addActionListener(e -> rateManager.showRateDialog());
+        toolsMenu.add(ratesItem);
+
+        menuBar.add(fileMenu);
+        menuBar.add(toolsMenu);
+        return menuBar;
+    }
+
+    private void setupIntegration() {
+        // Connect conversion panel to history
+        conversionPanel.setConversionCallback(conversion -> {
+            historyPanel.addConversion(conversion);
+            dataManager.saveHistory(historyPanel.getHistory());
+        });
+    }
+
+    private void loadSavedData() {
+        // Load saved exchange rates
+        Map<String, Double> savedRates = dataManager.loadRates();
+        if (!savedRates.isEmpty()) {
+            rateManager.updateRates(savedRates);
+            conversionPanel.updateCurrencyLists();
+        }
+
+        // Load conversion history
+        List<Conversion> history = dataManager.loadHistory();
+        history.forEach(historyPanel::addConversion);
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            new CurrencyConverterIntegrated().setVisible(true);
+        });
+    }
+}
+
+// Conversion Panel Component
+class ConversionPanel extends JPanel {
+    private final JTextField amountField;
+    private final JComboBox<String> fromCurrencyBox;
+    private final JComboBox<String> toCurrencyBox;
+    private final JLabel resultLabel;
+    private final RateManager rateManager;
+    private ConversionCallback callback;
+
+    public ConversionPanel(RateManager rateManager) {
+        this.rateManager = rateManager;
+        setPreferredSize(new Dimension(300, 400));
+        setBorder(BorderFactory.createTitledBorder("Currency Conversion"));
+        setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+
+        // Initialize components
+        amountField = new JTextField();
+        fromCurrencyBox = new JComboBox<>();
+        toCurrencyBox = new JComboBox<>();
+        resultLabel = new JLabel("Enter amount and select currencies");
+        
+        setupComponents();
+    }
+
+    private void setupComponents() {
+        // Amount panel
+        add(createLabeledPanel("Amount:", amountField));
+        add(Box.createVerticalStrut(10));
+
+        // Currency selection panels
+        add(createLabeledPanel("From:", fromCurrencyBox));
+        add(Box.createVerticalStrut(5));
+        add(createLabeledPanel("To:", toCurrencyBox));
+        add(Box.createVerticalStrut(10));
+
+        // Convert button
+        JButton convertButton = new JButton("Convert");
+        convertButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        convertButton.addActionListener(e -> performConversion());
+        add(convertButton);
+        add(Box.createVerticalStrut(10));
+
+        // Result panel
+        JPanel resultPanel = new JPanel();
+        resultPanel.add(resultLabel);
+        add(resultPanel);
+
+        updateCurrencyLists();
+    }
+
+    private JPanel createLabeledPanel(String label, JComponent component) {
+        JPanel panel = new JPanel();
+        panel.setLayout(new FlowLayout(FlowLayout.LEFT));
+        panel.add(new JLabel(label));
+        component.setPreferredSize(new Dimension(150, 25));
+        panel.add(component);
+        return panel;
+    }
+
+    public void updateCurrencyLists() {
+        fromCurrencyBox.setModel(new DefaultComboBoxModel<>(
+            rateManager.getAvailableCurrencies().toArray(new String[0])));
+        toCurrencyBox.setModel(new DefaultComboBoxModel<>(
+            rateManager.getAvailableCurrencies().toArray(new String[0])));
+    }
+
+    private void performConversion() {
+        try {
+            BigDecimal amount = new BigDecimal(amountField.getText());
+            String fromCurrency = (String) fromCurrencyBox.getSelectedItem();
+            String toCurrency = (String) toCurrencyBox.getSelectedItem();
+
+            BigDecimal rate = rateManager.getExchangeRate(fromCurrency, toCurrency);
+            BigDecimal result = amount.multiply(rate).setScale(2, RoundingMode.HALF_UP);
+
+            Conversion conversion = new Conversion(
+                amount, result, fromCurrency, toCurrency, LocalDateTime.now());
+
+            resultLabel.setText(conversion.toString());
+
+            if (callback != null) {
+                callback.onConversion(conversion);
+            }
+
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, 
+                "Error: " + e.getMessage(), "Conversion Error", 
+                JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    public void setConversionCallback(ConversionCallback callback) {
+        this.callback = callback;
+    }
+}
+
+// History Panel Component
+class HistoryPanel extends JPanel {
+    private final DefaultTableModel tableModel;
+    private final List<Conversion> history;
+
+    public HistoryPanel() {
+        setBorder(BorderFactory.createTitledBorder("Conversion History"));
+        setLayout(new BorderLayout());
+        
+        history = new ArrayList<>();
+        
+        // Setup table
+        String[] columns = {"Date", "From", "To", "Amount", "Result"};
+        tableModel = new DefaultTableModel(columns, 0);
+        JTable historyTable = new JTable(tableModel);
+        
+        // Add table to scroll pane
+        JScrollPane scrollPane = new JScrollPane(historyTable);
+        add(scrollPane, BorderLayout.CENTER);
+    }
+
+    public void addConversion(Conversion conversion) {
+        history.add(conversion);
+        Object[] rowData = {
+            conversion.getDateTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")),
+            String.format("%s %.2f", conversion.getFromCurrency(), conversion.getAmount()),
+            String.format("%s %.2f", conversion.getToCurrency(), conversion.getResult()),
+            conversion.getAmount(),
+            conversion.getResult()
+        };
+        tableModel.insertRow(0, rowData);
+    }
+
+    public List<Conversion> getHistory() {
+        return new ArrayList<>(history);
+    }
+}
+
+// Rate Manager Component
+class RateManager {
+    private final Map<String, Double> exchangeRates;
+    private final DataManager dataManager;
+
+    public RateManager(DataManager dataManager) {
+        this.dataManager = dataManager;
+        this.exchangeRates = new HashMap<>();
+        initializeDefaultRates();
+    }
+
+    private void initializeDefaultRates() {
+        exchangeRates.put("USD", 1.0);
+        exchangeRates.put("EUR", 0.85);
+        exchangeRates.put("GBP", 0.73);
+        exchangeRates.put("JPY", 110.0);
+    }
+
+    public void showRateDialog() {
+        JDialog dialog = new JDialog((Frame) null, "Manage Exchange Rates", true);
+        dialog.setSize(300, 400);
+        dialog.setLocationRelativeTo(null);
+
+        JPanel panel = new JPanel(new BorderLayout());
+        DefaultTableModel model = new DefaultTableModel(
+            new String[]{"Currency", "Rate"}, 0);
+
+        for (Map.Entry<String, Double> entry : exchangeRates.entrySet()) {
+            model.addRow(new Object[]{entry.getKey(), entry.getValue()});
+        }
+
+        JTable table = new JTable(model);
+        panel.add(new JScrollPane(table), BorderLayout.CENTER);
+
+        JButton saveButton = new JButton("Save");
+        saveButton.addActionListener(e -> {
+            updateRatesFromTable(table);
+            dialog.dispose();
+        });
+        panel.add(saveButton, BorderLayout.SOUTH);
+
+        dialog.add(panel);
+        dialog.setVisible(true);
+    }
+
+    private void updateRatesFromTable(JTable table) {
+        exchangeRates.clear();
+        DefaultTableModel model = (DefaultTableModel) table.getModel();
+        for (int i = 0; i < model.getRowCount(); i++) {
+            String currency = (String) model.getValueAt(i, 0);
+            Double rate = Double.valueOf(model.getValueAt(i, 1).toString());
+            exchangeRates.put(currency, rate);
+        }
+        dataManager.saveRates(exchangeRates);
+    }
+
+    public Set<String> getAvailableCurrencies() {
+        return new HashSet<>(exchangeRates.keySet());
+    }
+
+    public BigDecimal getExchangeRate(String fromCurrency, String toCurrency) {
+        double fromRate = exchangeRates.get(fromCurrency);
+        double toRate = exchangeRates.get(toCurrency);
+        return BigDecimal.valueOf(toRate / fromRate);
+    }
+
+    public void updateRates(Map<String, Double> newRates) {
+        exchangeRates.clear();
+        exchangeRates.putAll(newRates);
+    }
+}
+
+// Data Manager Component
+class DataManager {
+    private static final String RATES_FILE = "exchange_rates.dat";
+    private static final String HISTORY_FILE = "conversion_history.dat";
+
+    public void saveRates(Map<String, Double> rates) {
+        try (ObjectOutputStream oos = new ObjectOutputStream(
+                new FileOutputStream(RATES_FILE))) {
+            oos.writeObject(rates);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public Map<String, Double> loadRates() {
+        try (ObjectInputStream ois = new ObjectInputStream(
+                new FileInputStream(RATES_FILE))) {
+            return (Map<String, Double>) ois.readObject();
+        } catch (IOException | ClassNotFoundException e) {
+            return new HashMap<>();
+        }
+    }
+
+    public void saveHistory(List<Conversion> history) {
+        try (ObjectOutputStream oos = new ObjectOutputStream(
+                new FileOutputStream(HISTORY_FILE))) {
+            oos.writeObject(history);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<Conversion> loadHistory() {
+        try (ObjectInputStream ois = new ObjectInputStream(
+                new FileInputStream(HISTORY_FILE))) {
+            return (List<Conversion>) ois.readObject();
+        } catch (IOException | ClassNotFoundException e) {
+            return new ArrayList<>();
+        }
+    }
+
+    public void exportHistory(List<Conversion> history) {
+        JFileChooser fileChooser = new JFileChooser();
+        if (fileChooser.showSaveDialog(null) == JFileChooser.APPROVE_OPTION) {
+            try (PrintWriter writer = new PrintWriter(fileChooser.getSelectedFile())) {
+                writer.println("Date,From Currency,To Currency,Amount,Result");
+                for (Conversion conversion : history) {
+                    writer.println(String.format("%s,%s,%s,%.2f,%.2f",
+                        conversion.getDateTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")),
+                        conversion.getFromCurrency(),
+                        conversion.getToCurrency(),
+                        conversion.getAmount(),
+                        conversion.getResult()));
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+}
+
+// Conversion Model
+class Conversion implements Serializable {
+    private static final long serialVersionUID = 1L;
+    
+    private final BigDecimal amount;
+    private final BigDecimal result;
+    private final String fromCurrency;
+    private final String toCurrency;
+    private final LocalDateTime dateTime;
+
+    public Conversion(BigDecimal amount, BigDecimal result, 
+                     String fromCurrency, String toCurrency, 
+                     LocalDateTime dateTime) {
+        this.amount = amount;
+        this.result = result;
+        this.fromCurrency = fromCurrency;
+        this.toCurrency = toCurrency;
+        this.dateTime = dateTime;
+    }
+
+    public BigDecimal getAmount() { return amount; }
+    public BigDecimal getResult() { return result; }
+    public String getFromCurrency() { return fromCurrency; }
+    public String getToCurrency() { return toCurrency; }
+    public LocalDateTime getDateTime() { return dateTime; }
+
+    @Override
+    public String toString() {
+        return String.format("%.2f %s = %.2f %s",
+            amount, fromCurrency, result, toCurrency);
+    }
+}
+
+// Callback Interface
+interface ConversionCallback {
+    void onConversion(Conversion conversion);
+}

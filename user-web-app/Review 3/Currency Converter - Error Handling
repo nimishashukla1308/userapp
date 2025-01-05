@@ -1,0 +1,290 @@
+import javax.swing.*;
+import javax.swing.border.Border;
+import java.awt.*;
+import java.awt.event.*;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.HashMap;
+import java.util.Map;
+
+public class CurrencyConverterRobust extends JFrame {
+    private JTextField amountField;
+    private JComboBox<String> fromCurrencyBox;
+    private JComboBox<String> toCurrencyBox;
+    private JLabel resultLabel;
+    private JLabel validationLabel;
+    private final Map<String, Double> exchangeRates;
+    private Border defaultBorder;
+    private Border errorBorder;
+
+    public CurrencyConverterRobust() {
+        // Setup window properties
+        setTitle("Currency Converter - With Error Handling");
+        setSize(400, 550);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
+
+        // Initialize exchange rates
+        exchangeRates = new HashMap<>();
+        initializeExchangeRates();
+
+        // Initialize borders for validation feedback
+        defaultBorder = BorderFactory.createLineBorder(Color.GRAY);
+        errorBorder = BorderFactory.createLineBorder(Color.RED, 2);
+
+        // Setup UI components
+        setupUI();
+        
+        // Add input validation
+        setupValidation();
+    }
+
+    private void initializeExchangeRates() {
+        try {
+            exchangeRates.put("USD", 1.0);
+            exchangeRates.put("EUR", 0.85);
+            exchangeRates.put("GBP", 0.73);
+            exchangeRates.put("JPY", 110.0);
+            exchangeRates.put("AUD", 1.35);
+            exchangeRates.put("CAD", 1.25);
+        } catch (Exception e) {
+            showError("Failed to initialize exchange rates", "Initialization Error");
+            System.exit(1);
+        }
+    }
+
+    private void setupUI() {
+        // Main panel with padding
+        JPanel mainPanel = new JPanel();
+        mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
+        mainPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        // Title
+        addTitle(mainPanel);
+
+        // Amount Panel with validation
+        addAmountPanel(mainPanel);
+
+        // Currency Selection Panel
+        addCurrencyPanel(mainPanel);
+
+        // Convert Button
+        addConvertButton(mainPanel);
+
+        // Result Panel
+        addResultPanel(mainPanel);
+
+        // Add main panel to frame
+        add(mainPanel);
+    }
+
+    private void addTitle(JPanel mainPanel) {
+        JLabel titleLabel = new JLabel("Currency Converter");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
+        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        mainPanel.add(titleLabel);
+        mainPanel.add(Box.createRigidArea(new Dimension(0, 20)));
+    }
+
+    private void addAmountPanel(JPanel mainPanel) {
+        JPanel amountPanel = new JPanel();
+        amountPanel.setLayout(new BoxLayout(amountPanel, BoxLayout.Y_AXIS));
+        amountPanel.setBorder(BorderFactory.createTitledBorder("Enter Amount"));
+        
+        amountField = new JTextField();
+        amountField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+        amountField.setBorder(defaultBorder);
+        amountPanel.add(amountField);
+
+        // Add validation label
+        validationLabel = new JLabel(" ");
+        validationLabel.setForeground(Color.RED);
+        validationLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        amountPanel.add(validationLabel);
+        
+        mainPanel.add(amountPanel);
+        mainPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+    }
+
+    private void addCurrencyPanel(JPanel mainPanel) {
+        JPanel currencyPanel = new JPanel();
+        currencyPanel.setLayout(new BoxLayout(currencyPanel, BoxLayout.Y_AXIS));
+        currencyPanel.setBorder(BorderFactory.createTitledBorder("Select Currencies"));
+
+        // From Currency
+        JPanel fromPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        fromPanel.add(new JLabel("From:"));
+        fromCurrencyBox = new JComboBox<>(exchangeRates.keySet().toArray(new String[0]));
+        fromPanel.add(fromCurrencyBox);
+        currencyPanel.add(fromPanel);
+
+        // To Currency
+        JPanel toPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        toPanel.add(new JLabel("To:"));
+        toCurrencyBox = new JComboBox<>(exchangeRates.keySet().toArray(new String[0]));
+        toPanel.add(toCurrencyBox);
+        currencyPanel.add(toPanel);
+
+        mainPanel.add(currencyPanel);
+        mainPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+    }
+
+    private void addConvertButton(JPanel mainPanel) {
+        JButton convertButton = new JButton("Convert");
+        convertButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        convertButton.addActionListener(e -> performConversion());
+        mainPanel.add(convertButton);
+        mainPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+    }
+
+    private void addResultPanel(JPanel mainPanel) {
+        JPanel resultPanel = new JPanel();
+        resultPanel.setLayout(new BoxLayout(resultPanel, BoxLayout.Y_AXIS));
+        resultPanel.setBorder(BorderFactory.createTitledBorder("Result"));
+        
+        resultLabel = new JLabel("Enter an amount and click Convert");
+        resultLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        resultPanel.add(resultLabel);
+        
+        mainPanel.add(resultPanel);
+    }
+
+    private void setupValidation() {
+        // Real-time amount validation
+        amountField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { validateAmount(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { validateAmount(); }
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { validateAmount(); }
+        });
+
+        // Currency selection validation
+        fromCurrencyBox.addActionListener(e -> validateCurrencySelection());
+        toCurrencyBox.addActionListener(e -> validateCurrencySelection());
+    }
+
+    private boolean validateAmount() {
+        String amount = amountField.getText().trim();
+        
+        // Empty check
+        if (amount.isEmpty()) {
+            setValidationError("Amount cannot be empty");
+            return false;
+        }
+
+        // Format check
+        if (!amount.matches("^\\d*\\.?\\d*$")) {
+            setValidationError("Please enter numbers only");
+            return false;
+        }
+
+        try {
+            BigDecimal value = new BigDecimal(amount);
+            
+            // Range check
+            if (value.compareTo(BigDecimal.ZERO) <= 0) {
+                setValidationError("Amount must be greater than 0");
+                return false;
+            }
+            
+            if (value.compareTo(new BigDecimal("999999999")) > 0) {
+                setValidationError("Amount is too large");
+                return false;
+            }
+
+            // Valid input
+            clearValidationError();
+            return true;
+            
+        } catch (NumberFormatException e) {
+            setValidationError("Invalid number format");
+            return false;
+        }
+    }
+
+    private void validateCurrencySelection() {
+        String fromCurrency = (String) fromCurrencyBox.getSelectedItem();
+        String toCurrency = (String) toCurrencyBox.getSelectedItem();
+
+        if (fromCurrency != null && toCurrency != null && fromCurrency.equals(toCurrency)) {
+            showError("Please select different currencies", "Invalid Selection");
+            // Reset to different currencies
+            toCurrencyBox.setSelectedItem(fromCurrency.equals("USD") ? "EUR" : "USD");
+        }
+    }
+
+    private void setValidationError(String message) {
+        validationLabel.setText(message);
+        amountField.setBorder(errorBorder);
+    }
+
+    private void clearValidationError() {
+        validationLabel.setText(" ");
+        amountField.setBorder(defaultBorder);
+    }
+
+    private void performConversion() {
+        try {
+            // Validate input first
+            if (!validateAmount()) {
+                return;
+            }
+
+            // Get and validate input values
+            String amountStr = amountField.getText().trim();
+            if (amountStr.isEmpty()) {
+                throw new IllegalArgumentException("Please enter an amount");
+            }
+
+            BigDecimal amount = new BigDecimal(amountStr);
+            String fromCurrency = (String) fromCurrencyBox.getSelectedItem();
+            String toCurrency = (String) toCurrencyBox.getSelectedItem();
+
+            // Validate currency selection
+            if (fromCurrency == null || toCurrency == null) {
+                throw new IllegalStateException("Please select both currencies");
+            }
+
+            if (fromCurrency.equals(toCurrency)) {
+                throw new IllegalArgumentException("Please select different currencies");
+            }
+
+            // Get exchange rates
+            Double fromRate = exchangeRates.get(fromCurrency);
+            Double toRate = exchangeRates.get(toCurrency);
+
+            if (fromRate == null || toRate == null) {
+                throw new IllegalStateException("Exchange rate not available");
+            }
+
+            // Calculate conversion
+            BigDecimal convertedAmount = amount
+                .multiply(BigDecimal.valueOf(toRate))
+                .divide(BigDecimal.valueOf(fromRate), 2, RoundingMode.HALF_UP);
+
+            // Display result
+            String result = String.format("%.2f %s = %.2f %s",
+                amount.doubleValue(), fromCurrency,
+                convertedAmount.doubleValue(), toCurrency);
+            resultLabel.setText(result);
+
+        } catch (NumberFormatException e) {
+            showError("Please enter a valid number", "Input Error");
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            showError(e.getMessage(), "Validation Error");
+        } catch (Exception e) {
+            showError("An unexpected error occurred: " + e.getMessage(), "Error");
+        }
+    }
+
+    private void showError(String message, String title) {
+        JOptionPane.showMessageDialog(this, message, title, JOptionPane.ERROR_MESSAGE);
+    }
+
+    public static void main(String[] args) {
+        // Run GUI in event dispatch thread
+        SwingUtilities.invokeLater(() -> {
+            CurrencyConverterRobust converter = new CurrencyConverterRobust();
+            converter.setVisible(true);
+        });
+    }
+}

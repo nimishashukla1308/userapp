@@ -1,0 +1,142 @@
+import javax.swing.*;
+import java.awt.*;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.HashMap;
+import java.util.Map;
+
+public class CurrencyConverterCore extends JFrame {
+    private JTextField amountField;
+    private JComboBox<String> fromCurrencyBox;
+    private JComboBox<String> toCurrencyBox;
+    private JLabel resultLabel;
+    private final Map<String, Double> exchangeRates;
+
+    public CurrencyConverterCore() {
+        // Setup window properties
+        setTitle("Currency Converter");
+        setSize(400, 500);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
+
+        // Initialize exchange rates
+        exchangeRates = new HashMap<>();
+        exchangeRates.put("USD", 1.0);
+        exchangeRates.put("EUR", 0.85);
+        exchangeRates.put("GBP", 0.73);
+        exchangeRates.put("JPY", 110.0);
+        exchangeRates.put("AUD", 1.35);
+        exchangeRates.put("CAD", 1.25);
+
+        // Setup UI components
+        setupUI();
+    }
+
+    private void setupUI() {
+        // Main panel with padding
+        JPanel mainPanel = new JPanel();
+        mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
+        mainPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        // Title
+        JLabel titleLabel = new JLabel("Currency Converter");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
+        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        mainPanel.add(titleLabel);
+        mainPanel.add(Box.createRigidArea(new Dimension(0, 20)));
+
+        // Amount Panel
+        JPanel amountPanel = new JPanel();
+        amountPanel.setLayout(new BoxLayout(amountPanel, BoxLayout.Y_AXIS));
+        amountPanel.setBorder(BorderFactory.createTitledBorder("Enter Amount"));
+        
+        amountField = new JTextField();
+        amountField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+        amountPanel.add(amountField);
+        
+        mainPanel.add(amountPanel);
+        mainPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+
+        // Currency Selection Panel
+        JPanel currencyPanel = new JPanel();
+        currencyPanel.setLayout(new BoxLayout(currencyPanel, BoxLayout.Y_AXIS));
+        currencyPanel.setBorder(BorderFactory.createTitledBorder("Select Currencies"));
+
+        // From Currency
+        JPanel fromPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        fromPanel.add(new JLabel("From:"));
+        fromCurrencyBox = new JComboBox<>(exchangeRates.keySet().toArray(new String[0]));
+        fromPanel.add(fromCurrencyBox);
+        currencyPanel.add(fromPanel);
+
+        // To Currency
+        JPanel toPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        toPanel.add(new JLabel("To:"));
+        toCurrencyBox = new JComboBox<>(exchangeRates.keySet().toArray(new String[0]));
+        toPanel.add(toCurrencyBox);
+        currencyPanel.add(toPanel);
+
+        mainPanel.add(currencyPanel);
+        mainPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+
+        // Convert Button
+        JButton convertButton = new JButton("Convert");
+        convertButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        convertButton.addActionListener(e -> convertCurrency());
+        mainPanel.add(convertButton);
+        mainPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+
+        // Result Panel
+        JPanel resultPanel = new JPanel();
+        resultPanel.setLayout(new BoxLayout(resultPanel, BoxLayout.Y_AXIS));
+        resultPanel.setBorder(BorderFactory.createTitledBorder("Result"));
+        
+        resultLabel = new JLabel("Conversion result will appear here");
+        resultLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        resultPanel.add(resultLabel);
+        
+        mainPanel.add(resultPanel);
+
+        // Add main panel to frame
+        add(mainPanel);
+    }
+
+    private void convertCurrency() {
+        try {
+            // Get input values
+            String amountStr = amountField.getText();
+            BigDecimal amount = new BigDecimal(amountStr);
+            
+            String fromCurrency = (String) fromCurrencyBox.getSelectedItem();
+            String toCurrency = (String) toCurrencyBox.getSelectedItem();
+
+            // Get exchange rates
+            double fromRate = exchangeRates.get(fromCurrency);
+            double toRate = exchangeRates.get(toCurrency);
+
+            // Calculate conversion
+            BigDecimal convertedAmount = amount
+                .multiply(BigDecimal.valueOf(toRate))
+                .divide(BigDecimal.valueOf(fromRate), 2, RoundingMode.HALF_UP);
+
+            // Display result
+            String result = String.format("%.2f %s = %.2f %s",
+                amount.doubleValue(), fromCurrency,
+                convertedAmount.doubleValue(), toCurrency);
+            resultLabel.setText(result);
+            
+        } catch (NumberFormatException e) {
+            resultLabel.setText("Please enter a valid number");
+        } catch (Exception e) {
+            resultLabel.setText("Error during conversion");
+        }
+    }
+
+    public static void main(String[] args) {
+        // Run GUI in event dispatch thread
+        SwingUtilities.invokeLater(() -> {
+            CurrencyConverterCore converter = new CurrencyConverterCore();
+            converter.setVisible(true);
+        });
+    }
+}
